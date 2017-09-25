@@ -45,8 +45,10 @@ type Extender struct {
 
 	// number of promises must be always equal to number of promised VFs
 	// in separate loop we will go over promises and clear them as needed
+	// promisedVFs are global because we cant guarantee that original scheduler
+	// will choose first node from our order.
 	promises    []time.Time
-	promisedVFs map[string]*resource.Quantity
+	promisedVFs *resource.Quantity
 
 	selector Selector
 }
@@ -67,7 +69,6 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 			ext.promisedVFs[node.Name] = resource.NewQuantity(0, resource.DecimalExponent)
 		}
 		allocated := ext.allocatedVFs[node.Name]
-		promised := ext.promisedVFs[node.Name]
 		if res, exists := node.Status.Allocatable[TotalVFsResource]; !exists {
 			log.Printf("No allocatable vfs on a node %s \n", node.Name)
 			continue
@@ -75,20 +76,20 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 			totalVFs, _ := res.AsInt64()
 			log.Printf("Node %s has a total of %d allocatable vfs.", node.Name, totalVFs)
 			res.Sub(*allocated)
-			res.Sub(*promised)
+			res.Sub(*ext.promisedVFs)
 			restVFs, _ := res.AsInt64()
 			if restVFs > int64(0) {
 				log.Printf(
 					"Node %s has available VF and it will be promised to a pod %s/%s.",
 					node.Name, args.Pod.Namespace, args.Pod.Name)
 				result.Nodes.Items = append(result.Nodes.Items, node)
-				promised.Sub(singleItem)
+				ext.promisedVFs.Add(singleItem)
 				ext.promises = append(ext.promises, time.Now())
 			} else {
 				log.Printf("Node %s doesnt have sufficient number of VFs", node.Name)
 				result.FailedNodes[node.Name] = fmt.Sprintf(
 					"Not sufficient number of VFs. Allocated: %v. Promised: %v. Total: %v",
-					allocated, promised, totalVFs,
+					allocated, ext.promisedVFs, totalVFs,
 				)
 			}
 		}
