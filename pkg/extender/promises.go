@@ -12,14 +12,14 @@ const (
 )
 
 // promisesCleaner purges stale promises every interval
-func (ext *Extender) promisesCleaner(interval time.Duration) {
+func (ext *Extender) RunPromisesCleaner(interval time.Duration, stopCh <-chan struct{}) {
 	ticker := time.NewTicker(interval)
 	for {
 		select {
 		case <-ticker.C:
 			fmt.Println("Purging promises.")
 			ext.purgePromises()
-		case <-ext.stopCh:
+		case <-stopCh:
 			return
 		}
 	}

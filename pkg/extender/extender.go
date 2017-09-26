@@ -21,8 +21,9 @@ var (
 	zero       = resource.NewQuantity(0, resource.DecimalSI)
 )
 
-func NewExtender() *Extender {
+func NewExtender(client *kubernetes.Clientset) *Extender {
 	return &Extender{
+		client:       client,
 		allocatedVFs: make(map[string]*resource.Quantity),
 		promises:     make(map[types.UID]time.Time),
 		promisedVFs:  resource.NewQuantity(0, resource.DecimalSI),
@@ -43,8 +44,6 @@ type Extender struct {
 	promisedVFs *resource.Quantity
 
 	selector Selector
-
-	stopCh <-chan struct{}
 }
 
 func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, error) {
@@ -71,7 +70,7 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 			res.Sub(*ext.promisedVFs)
 			if res.Cmp(*zero) != 1 {
 				log.Printf(
-					"Node %s has available VF and it will be promised to a pod %s/%s.",
+					"Node %s has an available VF and it is promised to a pod %s/%s.",
 					node.Name, args.Pod.Namespace, args.Pod.Name)
 				result.Nodes.Items = append(result.Nodes.Items, node)
 				ext.promisedVFs.Add(*singleItem)

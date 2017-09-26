@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-func MakeServer(addr string) *http.Server {
+func MakeServer(ext *Extender, addr string) *http.Server {
 	mux := http.NewServeMux()
-	mux.Handle("/filter", NewExtender())
+	mux.Handle("/filter", ext)
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      mux,

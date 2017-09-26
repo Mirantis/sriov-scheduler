@@ -6,3 +6,4 @@ deps:
 
 build: vendor/
 	CGO_ENABLED=0 go build -o discovery ./cmd/discovery/
+	CGO_ENABLED=0 go build -o extender ./cmd/extender/
