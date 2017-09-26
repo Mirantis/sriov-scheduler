@@ -1,7 +1,17 @@
 package: github.com/dshulyak/sriov-scheduler
 import:
+- package: github.com/spf13/pflag
+  version: ^1.0.0
+- package: k8s.io/apimachinery
+  subpackages:
+  - pkg/api/resource
+  - pkg/apis/meta/v1
+  - pkg/fields
+  - pkg/types
 - package: k8s.io/client-go
-  version: v4.0.0
+  version: ^4.0.0
   subpackages:
   - kubernetes
+  - pkg/api/v1
+  - tools/cache
   - tools/clientcmd
