@@ -26,6 +26,7 @@ func (ext *Extender) purgePromises() {
 		if time.Now().Sub(promise).Seconds() >= (10 * time.Second).Seconds() {
 			copy(ext.promises[i:], ext.promises[i+1:])
 			ext.promises = ext.promises[:len(ext.promises)-1]
+			ext.promisedVFs.Sub(singleItem)
 		}
 	}
 }
