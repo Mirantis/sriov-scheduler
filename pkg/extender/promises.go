@@ -3,6 +3,8 @@ package extender
 import (
 	"fmt"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -13,20 +15,31 @@ const (
 func (ext *Extender) promisesCleaner(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	for {
-		<-ticker.C
-		fmt.Println("Purging promises.")
-		ext.purgePromises()
+		select {
+		case <-ticker.C:
+			fmt.Println("Purging promises.")
+			ext.purgePromises()
+		case <-ext.stopCh:
+			return
+		}
 	}
 }
 
 func (ext *Extender) purgePromises() {
 	ext.Lock()
 	defer ext.Unlock()
-	for i, promise := range ext.promises {
+	for podUID, promise := range ext.promises {
 		if time.Now().Sub(promise).Seconds() >= (10 * time.Second).Seconds() {
-			copy(ext.promises[i:], ext.promises[i+1:])
-			ext.promises = ext.promises[:len(ext.promises)-1]
-			ext.promisedVFs.Sub(singleItem)
+			delete(ext.promises, podUID)
+			ext.promisedVFs.Sub(*singleItem)
 		}
 	}
+}
+
+func (ext *Extender) purgeByUID(uid types.UID) {
+	if _, exists := ext.promises[uid]; !exists {
+		return
+	}
+	delete(ext.promises, uid)
+	ext.promisedVFs.Sub(*singleItem)
 }

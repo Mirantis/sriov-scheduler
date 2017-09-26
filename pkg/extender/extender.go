@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
@@ -22,24 +24,27 @@ var (
 func NewExtender() *Extender {
 	return &Extender{
 		allocatedVFs: make(map[string]*resource.Quantity),
-		promises:     []time.Time{},
+		promises:     make(map[types.UID]time.Time),
 		promisedVFs:  resource.NewQuantity(0, resource.DecimalSI),
 		selector:     NetworkSelector,
 	}
 }
 
 type Extender struct {
+	client *kubernetes.Clientset
+
 	sync.Mutex
 	allocatedVFs map[string]*resource.Quantity
-
 	// number of promises must be always equal to number of promised VFs
 	// in separate loop we will go over promises and clear them as needed
 	// promisedVFs are global because we cant guarantee that original scheduler
 	// will choose first node from our order.
-	promises    []time.Time
+	promises    map[types.UID]time.Time
 	promisedVFs *resource.Quantity
 
 	selector Selector
+
+	stopCh <-chan struct{}
 }
 
 func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, error) {
@@ -70,7 +75,7 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 					node.Name, args.Pod.Namespace, args.Pod.Name)
 				result.Nodes.Items = append(result.Nodes.Items, node)
 				ext.promisedVFs.Add(*singleItem)
-				ext.promises = append(ext.promises, time.Now())
+				ext.promises[args.Pod.UID] = time.Now()
 			} else {
 				log.Printf("Node %s doesnt have sufficient number of VFs", node.Name)
 				result.FailedNodes[node.Name] = fmt.Sprintf(
