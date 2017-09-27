@@ -1,8 +1,10 @@
 package extender
 
 import (
+	"log"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/pkg/api/v1"
@@ -17,6 +19,10 @@ func (ext *Extender) CreateMonitor() cache.Controller {
 		ext.client.Core().RESTClient(), "pods", meta_v1.NamespaceAll,
 		fields.ParseSelectorOrDie("spec.nodeName!="+""),
 	)
+	return ext.createMonitorFromSource(lw)
+}
+
+func (ext *Extender) createMonitorFromSource(lw cache.ListerWatcher) cache.Controller {
 	_, controller := cache.NewInformer(
 		lw, &v1.Pod{}, 30*time.Second, cache.ResourceEventHandlerFuncs{
 			AddFunc:    ext.syncAllocated,
@@ -29,24 +35,36 @@ func (ext *Extender) CreateMonitor() cache.Controller {
 
 func (ext *Extender) syncPurged(obj interface{}) {
 	pod := obj.(*v1.Pod)
+	log.Printf("removing pod %s\n", pod.UID)
 	if !ext.selector(pod) {
+		log.Printf("pod %s skipped\n", pod.UID)
 		return
 	}
 	ext.Lock()
 	defer ext.Unlock()
+	if _, exists := ext.allocatedVFs[pod.Spec.NodeName]; !exists {
+		ext.allocatedVFs[pod.Spec.NodeName] = resource.NewQuantity(0, resource.DecimalSI)
+	}
 	ext.allocatedVFs[pod.Spec.NodeName].Sub(*singleItem)
 	ext.purgeByUID(pod.UID)
+	log.Printf("pod %s removed\n", pod.UID)
 }
 
 func (ext *Extender) syncAllocated(obj interface{}) {
 	pod := obj.(*v1.Pod)
+	log.Printf("updating pod %s\n", pod.UID)
 	if !ext.selector(pod) {
+		log.Printf("pod %s skipped\n", pod.UID)
 		return
 	}
 	ext.Lock()
 	defer ext.Unlock()
+	if _, exists := ext.allocatedVFs[pod.Spec.NodeName]; !exists {
+		ext.allocatedVFs[pod.Spec.NodeName] = resource.NewQuantity(0, resource.DecimalSI)
+	}
 	ext.allocatedVFs[pod.Spec.NodeName].Add(*singleItem)
 	ext.purgeByUID(pod.UID)
+	log.Printf("pod %s updated\n", pod.UID)
 }
 
 func (ext *Extender) syncAllocatedFromUpdated(old, new interface{}) {
