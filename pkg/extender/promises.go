@@ -18,18 +18,18 @@ func (ext *Extender) RunPromisesCleaner(interval time.Duration, stopCh <-chan st
 		select {
 		case <-ticker.C:
 			fmt.Println("Purging promises.")
-			ext.purgePromises()
+			ext.purgePromises(time.Now())
 		case <-stopCh:
 			return
 		}
 	}
 }
 
-func (ext *Extender) purgePromises() {
+func (ext *Extender) purgePromises(fromTime time.Time) {
 	ext.Lock()
 	defer ext.Unlock()
 	for podUID, promise := range ext.promises {
-		if time.Now().Sub(promise).Seconds() >= (10 * time.Second).Seconds() {
+		if promise.Sub(fromTime).Seconds() >= (10 * time.Second).Seconds() {
 			delete(ext.promises, podUID)
 			ext.promisedVFs.Sub(*singleItem)
 		}
