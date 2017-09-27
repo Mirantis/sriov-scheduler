@@ -65,16 +65,14 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 			log.Printf("No allocatable vfs on a node %s \n", node.Name)
 			continue
 		} else {
-			log.Printf("Node %s has a total of %v allocatable vfs.", node.Name, res)
+			log.Printf("Node %s has a total of %v allocatable vfs.", node.Name, &res)
 			res.Sub(*allocated)
 			res.Sub(*ext.promisedVFs)
-			if res.Cmp(*zero) != 1 {
+			if res.Cmp(*zero) == 1 {
 				log.Printf(
 					"Node %s has an available VF and it is promised to a pod %s/%s.",
 					node.Name, args.Pod.Namespace, args.Pod.Name)
 				result.Nodes.Items = append(result.Nodes.Items, node)
-				ext.promisedVFs.Add(*singleItem)
-				ext.promises[args.Pod.UID] = time.Now()
 			} else {
 				log.Printf("Node %s doesnt have sufficient number of VFs", node.Name)
 				result.FailedNodes[node.Name] = fmt.Sprintf(
@@ -86,6 +84,9 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 	}
 	if len(result.Nodes.Items) == 0 {
 		result.Error = "No nodes have available VFs."
+	} else {
+		ext.promisedVFs.Add(*singleItem)
+		ext.promises[args.Pod.UID] = time.Now()
 	}
 	return result, nil
 }
