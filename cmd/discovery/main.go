@@ -12,17 +12,21 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"time"
+
 	"github.com/spf13/pflag"
 )
 
 type options struct {
 	device     string
 	kubeconfig string
+	interval   time.Duration
 }
 
 func (o *options) register() {
 	pflag.StringVar(&o.device, "device", "eth0", "Device to use for VFs.")
 	pflag.StringVar(&o.kubeconfig, "kubeconfig", "", "Kubernetes config file.")
+	pflag.DurationVarP(&o.interval, "interval", "i", 0, "If set discovery will run every specified interval.")
 }
 
 func (o *options) parse() {
@@ -66,7 +70,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting node hostname: %v", err)
 	}
+	for {
+		if err := doDiscovery(hostname, totalVfs, client); err != nil {
+			log.Fatalf("Error updating totalvfs for a node %s: %v\n", hostname, err)
+		}
+		if opts.interval > 0 {
+			time.Sleep(opts.interval)
+			continue
+		}
+		break
+	}
+	os.Exit(0)
+}
 
+func doDiscovery(hostname string, totalVfs resource.Quantity, client *kubernetes.Clientset) error {
 	for i := 3; i > 0; i-- {
 		log.Printf("Fetching a node %s from kubernetes API. Retries left %d\n", hostname, i-1)
 		node, err := client.Nodes().Get(hostname, meta_v1.GetOptions{})
@@ -83,7 +100,6 @@ func main() {
 			log.Printf("Updating a node %s failed.\n", hostname)
 			continue
 		}
-		os.Exit(0)
+		return nil
 	}
-	log.Fatalf("Not able to update totalvfs resource a node %s\n", hostname)
 }
