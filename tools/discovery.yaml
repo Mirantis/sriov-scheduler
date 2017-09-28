@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: sriov-discovery
+  labels:
+    app: sriov-scheduler-extender
+spec:
+  template:
+    metadata:
+      labels:
+        name: sriov-discovery
+    spec:
+      containers:
+        - resources:
+            requests:
+              cpu: 0.10
+          securityContext:
+            privileged: true
+          image: yashulyak/sriov-scheduler-extender
+          name: sriov-discovery
+          command: ["discovery", "-i", "60m"]
+          volumeMounts:
+            - name: proc
+              mountPath: /proc
+      volumes:
+        - name: proc
+          hostPath:
+              path: /proc
