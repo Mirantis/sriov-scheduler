@@ -48,37 +48,34 @@ func main() {
 
 	opts := new(options)
 	opts.registerAndParse()
-	deviceFile := fmt.Sprintf(sriovTotalvfsMask, opts.device)
-	log.Printf("Total VFs number will be discovered from %s\n", deviceFile)
-	totalVfsBytes, err := ioutil.ReadFile(deviceFile)
-	if err != nil {
-		log.Fatalf("Error discovering totalvfs from file %s; %v", deviceFile, err)
-	}
-	totalVfs := resource.MustParse(string(totalVfsBytes))
-
-	log.Printf("Using kubernetes config %s\n", opts.kubeconfig)
-	config, err := clientcmd.BuildConfigFromFlags("", opts.kubeconfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("Error getting node hostname: %v", err)
-	}
-	for {
+	err := periodically(opts.interval, func() error {
+		deviceFile := fmt.Sprintf(sriovTotalvfsMask, opts.device)
+		log.Printf("Total VFs number will be discovered from %s\n", deviceFile)
+		totalVfsBytes, err := ioutil.ReadFile(deviceFile)
+		if err != nil {
+			log.Fatalf("Error discovering totalvfs from file %s; %v", deviceFile, err)
+		}
+		totalVfs := resource.MustParse(string(totalVfsBytes))
+		log.Printf("Using kubernetes config %s\n", opts.kubeconfig)
+		config, err := clientcmd.BuildConfigFromFlags("", opts.kubeconfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		client, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Fatal(err)
+		}
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Fatalf("Error getting node hostname: %v", err)
+		}
 		if err := doDiscovery(hostname, totalVfs, client); err != nil {
 			log.Fatalf("Error updating totalvfs for a node %s: %v\n", hostname, err)
 		}
-		if opts.interval > 0 {
-			time.Sleep(opts.interval)
-			continue
-		}
-		break
+		return nil
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 	os.Exit(0)
 }
@@ -98,6 +95,19 @@ func doDiscovery(hostname string, totalVfs resource.Quantity, client *kubernetes
 		_, err = client.Nodes().Update(node)
 		if err != nil {
 			log.Printf("Updating a node %s failed.\n", hostname)
+			continue
+		}
+		return nil
+	}
+}
+
+func periodically(interval time.Duration, f func() error) error {
+	for {
+		if err := f(); err != nil {
+			return err
+		}
+		if interval > 0 {
+			time.Sleep(interval)
 			continue
 		}
 		return nil
