@@ -29,5 +29,6 @@ spec:
       containers:
       - name: sriov-scheduler-extender
         image: yashulyak/sriov-scheduler-extender
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8989

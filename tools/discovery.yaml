@@ -16,6 +16,7 @@ spec:
           securityContext:
             privileged: true
           image: yashulyak/sriov-scheduler-extender
+          imagePullPolicy: IfNotPresent
           command: ["discovery", "-i", "60m"]
           volumeMounts:
             - name: sys
