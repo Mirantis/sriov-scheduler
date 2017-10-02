@@ -10,9 +10,10 @@ import (
 
 	"github.com/dshulyak/sriov-scheduler/pkg/extender"
 
-	"github.com/spf13/pflag"
+	"flag"
+
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/require"
-	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,12 +33,13 @@ const (
 var (
 	kubeconfig          string
 	deploymentDirectory string
+	master              string
 )
 
 func init() {
-	pflag.StringVar(&kubeconfig, "kubeconfig", "", "Kubernetes config")
-	pflag.StringVarP(&deploymentDirectory, "deployments", "d", "", "Directory with all deployment definitions")
-	pflag.Parse()
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Kubernetes config")
+	flag.StringVar(&deploymentDirectory, "deployments", "", "Directory with all deployment definitions")
+	flag.StringVar(&master, "master", "kube-master", "Name opf the kubernetes master node")
 }
 
 // TestSriovExtender runs next scenario:
@@ -104,16 +106,18 @@ func TestSriovExtender(t *testing.T) {
 			return err
 		}
 		for _, node := range nodes.Items {
+			if node.Name == master {
+				continue
+			}
 			if val, exists := node.Status.Allocatable[extender.TotalVFsResource]; !exists {
 				return fmt.Errorf("node %s doesnt have totalvfs discovered", node.Name)
-			} else {
-				if val.Cmp(sriovTotalVFsQuantity) != 0 {
-					return fmt.Errorf(
-						"discovered quantity %v is different from expected %v on node %s",
-						&val, &sriovTotalVFsQuantity, node.Name,
-					)
-				}
+			} else if val.Cmp(sriovTotalVFsQuantity) != 0 {
+				return fmt.Errorf(
+					"discovered quantity %v is different from expected %v on node %s",
+					&val, &sriovTotalVFsQuantity, node.Name,
+				)
 			}
+
 		}
 		return nil
 	}, 10*time.Second, 500*time.Millisecond))

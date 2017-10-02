@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: sriov-discovery
+  namespace: kube-system
   labels:
     app: sriov-scheduler-extender
 spec:
@@ -11,13 +12,10 @@ spec:
         name: sriov-discovery
     spec:
       containers:
-        - resources:
-            requests:
-              cpu: 0.10
+        - name: sriov-discovery
           securityContext:
             privileged: true
           image: yashulyak/sriov-scheduler-extender
-          name: sriov-discovery
           command: ["discovery", "-i", "60m"]
           volumeMounts:
             - name: sys

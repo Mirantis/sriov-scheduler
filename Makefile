@@ -18,5 +18,16 @@ extender: vendor/
 docker: build
 	docker build -t $(IMAGE_REPO):$(IMAGE_BRANCH) .
 
-e2e:
+e2e e2e.test:
 	go test -c -o e2e.test ./tests/
+
+import:
+	IMAGE_REPO=$(IMAGE_REPO) IMAGE_BRANCH=$(IMAGE_BRANCH) ./utils/import.sh
+
+run-e2e: import e2e.test
+	./e2e.test -deployments=./tools/ -kubeconfig=/home/ds/.kube/config 
+
+clean: 
+	-rm discovery
+	-rm extender
+	-rm e2e.test
