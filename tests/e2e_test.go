@@ -15,6 +15,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	apps "k8s.io/client-go/pkg/apis/apps/v1beta1"
@@ -113,23 +114,23 @@ func TestSriovExtender(t *testing.T) {
 					)
 				}
 			}
-			return nil
-
 		}
+		return nil
 	}, 10*time.Second, 500*time.Millisecond))
 
-	extend, err = client.AppsV1beta1().Deployments(extend.Namespace).Create(extender)
+	extend, err = client.AppsV1beta1().Deployments(extend.Namespace).Create(extend)
 	require.NoError(t, err)
 	_, err = client.Services(extenderSvc.Namespace).Create(&extenderSvc)
 	require.NoError(t, err)
 	require.NoError(t, Eventually(func() error {
-		pods, err := client.Core().Pods(extend.Namespace).List(meta_v1.ListOptions{
-			LabelSelector: extend.Spec.Selector,
-		})
+		pods, err := client.Core().Pods(extend.Namespace).List(
+			meta_v1.ListOptions{
+				LabelSelector: labels.Set(extend.Spec.Selector.MatchLabels).String(),
+			})
 		if err != nil {
 			return err
 		}
-		if lth := int32(len(pods.Items)); lth != &extend.Spec.Replicas {
+		if lth := int32(len(pods.Items)); lth != *extend.Spec.Replicas {
 			return fmt.Errorf("unexpected number of replices %d != %d for extender", lth, extend.Spec.Replicas)
 		}
 		for _, pod := range pods.Items {
@@ -196,13 +197,14 @@ func TestSriovExtender(t *testing.T) {
 	sriovDeployment, err = client.AppsV1beta1().Deployments(sriovDeployment.Namespace).Create(sriovDeployment)
 	require.NoError(t, err)
 	require.NoError(t, Eventually(func() error {
-		pods, err := client.Core().Pods(sriovDeployment.Namespace).List(v1.ListOptions{
-			Selector: sriovDeployment.Spec.Selector,
-		})
+		pods, err := client.Core().Pods(sriovDeployment.Namespace).List(
+			meta_v1.ListOptions{
+				LabelSelector: labels.Set(sriovDeployment.Spec.Selector.MatchLabels).String(),
+			})
 		if err != nil {
 			return err
 		}
-		if int32(len(pods.Items)) != &sriovDeployment.Spec.Replicas {
+		if int32(len(pods.Items)) != *sriovDeployment.Spec.Replicas {
 			return fmt.Errorf("some pods were not yet created for deployment %s", sriovDeployment.Name)
 		}
 		var running int

@@ -1,7 +1,10 @@
 package: github.com/dshulyak/sriov-scheduler
 import:
 - package: github.com/spf13/pflag
-  version: ^1.0.0
+- package: github.com/stretchr/testify
+  subpackages:
+  - require
+- package: gopkg.in/yaml.v2
 - package: k8s.io/apimachinery
   subpackages:
   - pkg/api/resource
@@ -9,9 +12,10 @@ import:
   - pkg/fields
   - pkg/types
 - package: k8s.io/client-go
-  version: ^4.0.0
   subpackages:
   - kubernetes
   - pkg/api/v1
+  - pkg/apis/apps/v1beta1
+  - pkg/apis/extensions/v1beta1
   - tools/cache
   - tools/clientcmd
