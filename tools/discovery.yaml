@@ -20,9 +20,9 @@ spec:
           name: sriov-discovery
           command: ["discovery", "-i", "60m"]
           volumeMounts:
-            - name: proc
-              mountPath: /proc
+            - name: sys
+              mountPath: /sys
       volumes:
-        - name: proc
+        - name: sys
           hostPath:
-              path: /proc
+              path: /sys

@@ -99,6 +99,7 @@ func doDiscovery(hostname string, totalVfs resource.Quantity, client *kubernetes
 		}
 		return nil
 	}
+	return nil
 }
 
 func periodically(interval time.Duration, f func() error) error {

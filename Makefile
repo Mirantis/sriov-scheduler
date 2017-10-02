@@ -17,3 +17,6 @@ extender: vendor/
 
 docker: build
 	docker build -t $(IMAGE_REPO):$(IMAGE_BRANCH) .
+
+e2e:
+	go test -c -o e2e.test ./tests/
