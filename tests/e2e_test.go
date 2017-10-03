@@ -29,7 +29,7 @@ import (
 const (
 	vfsDevice       = "eth3"
 	policyConfigMap = "scheduler-policy"
-	sriovTotalVFs   = "2"
+	sriovTotalVFs   = "1"
 )
 
 var (
@@ -196,7 +196,7 @@ func TestSriovExtender(t *testing.T) {
 		return nil
 	}, 10*time.Second, 500*time.Millisecond))
 
-	var sriovPods int32 = 2
+	var sriovPods int32 = 3
 	sriovDeployment := &apps.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "sriov-test-deployment",
@@ -246,7 +246,7 @@ func TestSriovExtender(t *testing.T) {
 		if running != 2 {
 			return fmt.Errorf("unexpected number of running pods %d - %v", running, pods)
 		}
-		if pending != 0 {
+		if pending != 1 {
 			return fmt.Errorf("unexpected number of pending pods %d - %v", pending, pods)
 		}
 		return nil
