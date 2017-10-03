@@ -2,8 +2,10 @@ package extender
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"time"
 )
 
@@ -20,29 +22,38 @@ func MakeServer(ext *Extender, addr string) *http.Server {
 }
 
 func (ext *Extender) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var args ExtenderArgs
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := httputil.DumpRequest(r, true)
 	if err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte(err.Error()))
+		log.Printf("error dumping request: %v\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := json.Unmarshal(body, &args); err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	if result, err := ext.FilterArgs(&args); err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte(err.Error()))
-	} else {
-		body, err := json.Marshal(result)
-		if err != nil {
-			w.WriteHeader(400)
-			w.Write([]byte(err.Error()))
-			return
+	log.Println(string(body))
+
+	if r.Method == "POST" {
+		var args ExtenderArgs
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&args); err != nil {
+			if err != io.EOF {
+				log.Printf("error unmarshalling body: %v\n", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
-		w.WriteHeader(200)
-		w.Write(body)
+		if result, err := ext.FilterArgs(&args); err != nil {
+			log.Printf("error running filter: %v\n", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			body, err := json.Marshal(result)
+			if err != nil {
+				log.Printf("error marshalling result: %v\n", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(200)
+			w.Write(body)
+		}
+	} else {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 	}
 }

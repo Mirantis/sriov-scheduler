@@ -1,0 +1,8 @@
+{
+"kind" : "Policy",
+"apiVersion" : "v1",
+"extenders": [
+  {"urlPrefix": "http://0.0.0.0:30001", "filterVerb": "filter", 
+   "nodeCacheCapable": false, "enableHttps": false, "weight": 10}
+]
+}

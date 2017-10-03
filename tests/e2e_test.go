@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -48,9 +50,8 @@ func init() {
 // 3. Deploy discovery daemonset and wait until totalvfs resource will be saved on nodes
 // 4. Deployment extender deployment and service. Wait until extender pods are ready.
 // 5. Update policy config for scheduler.
-// 6. Create 5 pods that require sriov network.
-// 7. Verify that 4 pods will be running and in ready state.
-// 8. And 1 pod won't be scheduled.
+// 6. Create 2 pods that require sriov network.
+// 7. Verify that 2 pods will be running and in ready state.
 func TestSriovExtender(t *testing.T) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	require.NoError(t, err)
@@ -94,10 +95,10 @@ func TestSriovExtender(t *testing.T) {
 	require.Len(t, discovery.Spec.Template.Spec.Containers[0].VolumeMounts, 1)
 	discovery.Spec.Template.Spec.Containers[0].VolumeMounts[0] = v1.VolumeMount{
 		Name:      "sys",
-		MountPath: fmt.Sprintf("/sys/class/net/%s/device/", vfsDevice),
+		MountPath: fmt.Sprintf("/test/class/net/%s/device/", vfsDevice),
 	}
 	discovery.Spec.Template.Spec.Containers[0].Command = append(
-		discovery.Spec.Template.Spec.Containers[0].Command, "-i", vfsDevice)
+		discovery.Spec.Template.Spec.Containers[0].Command, "--device", vfsDevice)
 	_, err = client.DaemonSets(discovery.Namespace).Create(&discovery)
 	require.NoError(t, err)
 	require.NoError(t, Eventually(func() error {
@@ -146,28 +147,46 @@ func TestSriovExtender(t *testing.T) {
 	}, 10*time.Second, 500*time.Millisecond))
 
 	schedulerPod, err := client.Core().Pods("kube-system").Get("kube-scheduler-kube-master", meta_v1.GetOptions{})
-	require.NoError(t, client.Core().Pods("kube-system").Delete(schedulerPod.Name, &meta_v1.DeleteOptions{}))
-	require.NoError(t, err)
+
+	cmd := exec.Command("docker", "exec", master, "mv", "/etc/kubernetes/manifests/kube-scheduler.yaml", "/tmp")
+	require.NoError(t, cmd.Run())
+	require.NoError(t, Eventually(func() error {
+		_, err := client.Core().Pods("kube-system").Get("kube-scheduler-kube-master", meta_v1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("expected that object will be not found")
+	}, 10*time.Second, 500*time.Millisecond))
 	require.Len(t, schedulerPod.Spec.Containers, 1)
 	schedulerPod.Spec.Containers[0].Command = append(
-		schedulerPod.Spec.Containers[0].Command, "--policy-configmap", policyConfigMap)
+		schedulerPod.Spec.Containers[0].Command,
+		"--policy-configmap", policyConfigMap,
+	)
+	newSchedulerPod := &v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      "sriov-test-" + schedulerPod.Name,
+			Namespace: "kube-system",
+		},
+		Spec: schedulerPod.Spec,
+	}
 
-	policyData, err := ioutil.ReadFile(filepath.Join(deploymentDirectory, "scheduler.yaml"))
+	policyData, err := ioutil.ReadFile(filepath.Join(deploymentDirectory, "scheduler.json"))
 	require.NoError(t, err)
 
 	policyCfg := v1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      policyConfigMap,
-			Namespace: schedulerPod.Namespace,
+			Namespace: newSchedulerPod.Namespace,
 		},
 		Data: map[string]string{"policy.cfg": string(policyData)},
 	}
 	_, err = client.ConfigMaps(policyCfg.Namespace).Create(&policyCfg)
 	require.NoError(t, err)
-	schedulerPod, err = client.Core().Pods(schedulerPod.Namespace).Create(schedulerPod)
+	t.Logf("creating pod %v", newSchedulerPod)
+	newSchedulerPod, err = client.Core().Pods(newSchedulerPod.Namespace).Create(newSchedulerPod)
 	require.NoError(t, err)
 	require.NoError(t, Eventually(func() error {
-		pod, err := client.Core().Pods(schedulerPod.Namespace).Get(schedulerPod.Name, meta_v1.GetOptions{})
+		pod, err := client.Core().Pods(newSchedulerPod.Namespace).Get(newSchedulerPod.Name, meta_v1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -175,18 +194,21 @@ func TestSriovExtender(t *testing.T) {
 			return fmt.Errorf("scheduler is not running %s", pod)
 		}
 		return nil
-	}, 3*time.Second, 500*time.Millisecond))
+	}, 10*time.Second, 500*time.Millisecond))
 
-	var sriovPods int32 = 5
+	var sriovPods int32 = 2
 	sriovDeployment := &apps.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        "sriov-test-deployment",
-			Namespace:   "default",
-			Annotations: map[string]string{"networks": "sriov"},
+			Name:      "sriov-test-deployment",
+			Namespace: "default",
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &sriovPods,
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Labels:      map[string]string{"app": "sriov-test-deployment"},
+					Annotations: map[string]string{"networks": "sriov"},
+				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -221,10 +243,10 @@ func TestSriovExtender(t *testing.T) {
 				pending++
 			}
 		}
-		if running != 4 {
+		if running != 2 {
 			return fmt.Errorf("unexpected number of running pods %d - %v", running, pods)
 		}
-		if pending != 1 {
+		if pending != 0 {
 			return fmt.Errorf("unexpected number of pending pods %d - %v", pending, pods)
 		}
 		return nil

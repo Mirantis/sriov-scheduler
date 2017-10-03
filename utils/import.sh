@@ -3,7 +3,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -o xtrace
 
 IMAGE_REPO=${IMAGE_REPO:-yashulyak/sriov-scheduler-extender}
 IMAGE_TAG=${IMAGE_TAG:-latest}

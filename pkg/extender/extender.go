@@ -47,6 +47,7 @@ type Extender struct {
 }
 
 func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, error) {
+	log.Printf("Filter called with pod %s/%s and args %v", args.Pod.Namespace, args.Pod.Name, args)
 	if !ext.selector(&args.Pod) {
 		return nil, nil
 	}
@@ -57,6 +58,7 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 		FailedNodes: make(map[string]string),
 	}
 	for _, node := range args.Nodes.Items {
+		log.Printf("Checking node %s", node.Name)
 		if _, exists := ext.allocatedVFs[node.Name]; !exists {
 			ext.allocatedVFs[node.Name] = resource.NewQuantity(0, resource.DecimalExponent)
 		}

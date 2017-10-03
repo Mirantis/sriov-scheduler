@@ -11,13 +11,14 @@ spec:
       labels:
         name: sriov-discovery
     spec:
+      hostNetwork: true
       containers:
         - name: sriov-discovery
           securityContext:
             privileged: true
           image: yashulyak/sriov-scheduler-extender
           imagePullPolicy: IfNotPresent
-          command: ["discovery", "-i", "60m"]
+          command: ["discovery"]
           volumeMounts:
             - name: sys
               mountPath: /sys

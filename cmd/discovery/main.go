@@ -14,6 +14,8 @@ import (
 
 	"time"
 
+	"strings"
+
 	"github.com/spf13/pflag"
 )
 
@@ -21,12 +23,18 @@ type options struct {
 	device     string
 	kubeconfig string
 	interval   time.Duration
+	nodename   string
 }
 
 func (o *options) register() {
 	pflag.StringVar(&o.device, "device", "eth0", "Device to use for VFs.")
 	pflag.StringVar(&o.kubeconfig, "kubeconfig", "", "Kubernetes config file.")
 	pflag.DurationVarP(&o.interval, "interval", "i", 0, "If set discovery will run every specified interval.")
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Error getting node hostname: %v", err)
+	}
+	pflag.StringVar(&o.nodename, "nodename", hostname, "Name of the node.")
 }
 
 func (o *options) parse() {
@@ -39,7 +47,7 @@ func (o *options) registerAndParse() {
 }
 
 const (
-	sriovTotalvfsMask                 = "/sys/class/net/%s/device/sriov_totalvfs"
+	sriovTotalvfsMask                 = "/test/class/net/%s/device/sriov_totalvfs"
 	TotalVFsResource  v1.ResourceName = "totalvfs"
 )
 
@@ -55,7 +63,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error discovering totalvfs from file %s; %v", deviceFile, err)
 		}
-		totalVfs := resource.MustParse(string(totalVfsBytes))
+		totalVfs := resource.MustParse(strings.TrimSpace(string(totalVfsBytes)))
 		log.Printf("Using kubernetes config %s\n", opts.kubeconfig)
 		config, err := clientcmd.BuildConfigFromFlags("", opts.kubeconfig)
 		if err != nil {
@@ -65,12 +73,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		hostname, err := os.Hostname()
-		if err != nil {
-			log.Fatalf("Error getting node hostname: %v", err)
-		}
-		if err := doDiscovery(hostname, totalVfs, client); err != nil {
-			log.Fatalf("Error updating totalvfs for a node %s: %v\n", hostname, err)
+		if err := doDiscovery(opts.nodename, totalVfs, client); err != nil {
+			log.Fatalf("Error updating totalvfs for a node %s: %v\n", opts.nodename, err)
 		}
 		return nil
 	})
@@ -92,7 +96,7 @@ func doDiscovery(hostname string, totalVfs resource.Quantity, client *kubernetes
 		// TODO a patch request
 		node.Status.Capacity[TotalVFsResource] = totalVfs
 		node.Status.Allocatable[TotalVFsResource] = totalVfs
-		_, err = client.Nodes().Update(node)
+		_, err = client.Nodes().UpdateStatus(node)
 		if err != nil {
 			log.Printf("Updating a node %s failed.\n", hostname)
 			continue
