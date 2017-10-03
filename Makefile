@@ -36,3 +36,10 @@ clean-k8s:
 	./utils/clean.sh
 
 ci: clean-k8s clean docker import run-e2e
+
+docker-push:
+	docker push $(IMAGE_REPO):$(IMAGE_BRANCH)
+
+quick-release: docker docker-push
+
+release: ci docker-push
