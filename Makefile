@@ -33,7 +33,7 @@ clean:
 	-rm e2e.test
 
 clean-k8s:
-	./utils/clean.sh
+	-./utils/clean.sh
 
 ci: clean-k8s clean docker import run-e2e
 

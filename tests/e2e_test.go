@@ -95,10 +95,10 @@ func TestSriovExtender(t *testing.T) {
 	require.Len(t, discovery.Spec.Template.Spec.Containers[0].VolumeMounts, 1)
 	discovery.Spec.Template.Spec.Containers[0].VolumeMounts[0] = v1.VolumeMount{
 		Name:      "sys",
-		MountPath: fmt.Sprintf("/test/class/net/%s/device/", vfsDevice),
+		MountPath: fmt.Sprintf("/test/sys/class/net/%s/device/", vfsDevice),
 	}
 	discovery.Spec.Template.Spec.Containers[0].Command = append(
-		discovery.Spec.Template.Spec.Containers[0].Command, "--device", vfsDevice)
+		discovery.Spec.Template.Spec.Containers[0].Command, "--device", vfsDevice, "--directory", "/test")
 	_, err = client.DaemonSets(discovery.Namespace).Create(&discovery)
 	require.NoError(t, err)
 	require.NoError(t, Eventually(func() error {

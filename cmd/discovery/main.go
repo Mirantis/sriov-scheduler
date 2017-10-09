@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,12 +25,15 @@ type options struct {
 	kubeconfig string
 	interval   time.Duration
 	nodename   string
+	directory  string
 }
 
 func (o *options) register() {
 	pflag.StringVar(&o.device, "device", "eth0", "Device to use for VFs.")
 	pflag.StringVar(&o.kubeconfig, "kubeconfig", "", "Kubernetes config file.")
 	pflag.DurationVarP(&o.interval, "interval", "i", 0, "If set discovery will run every specified interval.")
+	pflag.StringVarP(&o.directory, "directory", "d", "/",
+		"Base directory for sriov total vfs location, mainly used in tests")
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalf("Error getting node hostname: %v", err)
@@ -47,7 +51,7 @@ func (o *options) registerAndParse() {
 }
 
 const (
-	sriovTotalvfsMask                 = "/test/class/net/%s/device/sriov_totalvfs"
+	sriovTotalvfsMask                 = "sys/class/net/%s/device/sriov_totalvfs"
 	TotalVFsResource  v1.ResourceName = "totalvfs"
 )
 
@@ -57,7 +61,7 @@ func main() {
 	opts := new(options)
 	opts.registerAndParse()
 	err := periodically(opts.interval, func() error {
-		deviceFile := fmt.Sprintf(sriovTotalvfsMask, opts.device)
+		deviceFile := fmt.Sprintf(filepath.Join(opts.directory, sriovTotalvfsMask), opts.device)
 		log.Printf("Total VFs number will be discovered from %s\n", deviceFile)
 		totalVfsBytes, err := ioutil.ReadFile(deviceFile)
 		if err != nil {
