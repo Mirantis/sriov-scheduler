@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"time"
 )
 
@@ -22,15 +21,7 @@ func MakeServer(ext *Extender, addr string) *http.Server {
 }
 
 func (ext *Extender) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.DumpRequest(r, true)
-	if err != nil {
-		log.Printf("error dumping request: %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	log.Println(string(body))
-
-	if r.Method == "POST" {
+	if r.Method == http.MethodPost {
 		var args ExtenderArgs
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&args); err != nil {
@@ -51,7 +42,9 @@ func (ext *Extender) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			w.WriteHeader(200)
-			w.Write(body)
+			if _, err := w.Write(body); err != nil {
+				log.Printf("error writing response body: %v", err)
+			}
 		}
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)

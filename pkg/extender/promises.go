@@ -2,6 +2,7 @@ package extender
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -11,35 +12,81 @@ const (
 	defaultPromisesCleanerInterval = 5 * time.Second
 )
 
-// promisesCleaner purges stale promises every interval
-func (ext *Extender) RunPromisesCleaner(interval time.Duration, stopCh <-chan struct{}) {
+type PromisesInterface interface {
+	PurgePromise(types.UID)
+	MakePromise(types.UID)
+	PromisesCount() int
+	Subscribe(chan struct{})
+	RunPromisesCleaner(time.Duration, <-chan struct{})
+}
+
+func NewPromises() PromisesInterface {
+	return &Promises{
+		promises:    map[types.UID]time.Time{},
+		subscribers: make([]chan struct{}, 0, 1),
+	}
+}
+
+type Promises struct {
+	sync.Mutex
+	promises    map[types.UID]time.Time
+	subscribers []chan struct{}
+}
+
+func (p *Promises) MakePromise(uid types.UID) {
+	p.Lock()
+	defer p.Unlock()
+	p.promises[uid] = time.Now()
+}
+
+func (p *Promises) PurgePromise(uid types.UID) {
+	p.Lock()
+	defer p.Unlock()
+	p.purgePromise(uid)
+}
+
+func (p *Promises) purgePromise(uid types.UID) {
+	if _, exists := p.promises[uid]; !exists {
+		return
+	}
+	delete(p.promises, uid)
+	for _, s := range p.subscribers {
+		close(s)
+	}
+	p.subscribers = make([]chan struct{}, 0, 1)
+}
+
+func (p *Promises) PromisesCount() int {
+	p.Lock()
+	defer p.Unlock()
+	return len(p.promises)
+}
+
+func (p *Promises) Subscribe(waitChan chan struct{}) {
+	p.Lock()
+	defer p.Unlock()
+	p.subscribers = append(p.subscribers, waitChan)
+}
+
+func (p *Promises) RunPromisesCleaner(interval time.Duration, stopCh <-chan struct{}) {
 	ticker := time.NewTicker(interval)
 	for {
 		select {
 		case <-ticker.C:
 			fmt.Println("Purging promises.")
-			ext.purgePromises(time.Now())
+			p.purgePromises(time.Now())
 		case <-stopCh:
 			return
 		}
 	}
 }
 
-func (ext *Extender) purgePromises(fromTime time.Time) {
-	ext.Lock()
-	defer ext.Unlock()
-	for podUID, promise := range ext.promises {
+func (p *Promises) purgePromises(fromTime time.Time) {
+	p.Lock()
+	defer p.Unlock()
+	for podUID, promise := range p.promises {
 		if promise.Sub(fromTime).Seconds() >= (10 * time.Second).Seconds() {
-			delete(ext.promises, podUID)
-			ext.promisedVFs.Sub(*singleItem)
+			p.purgePromise(podUID)
 		}
 	}
-}
-
-func (ext *Extender) purgeByUID(uid types.UID) {
-	if _, exists := ext.promises[uid]; !exists {
-		return
-	}
-	delete(ext.promises, uid)
-	ext.promisedVFs.Sub(*singleItem)
 }
