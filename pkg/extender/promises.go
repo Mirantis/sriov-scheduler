@@ -2,9 +2,11 @@ package extender
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -15,7 +17,7 @@ const (
 type PromisesInterface interface {
 	PurgePromise(types.UID)
 	MakePromise(types.UID)
-	PromisesCount() int
+	PromisesCount() *resource.Quantity
 	Subscribe(chan struct{})
 	RunPromisesCleaner(time.Duration, <-chan struct{})
 }
@@ -36,6 +38,7 @@ type Promises struct {
 func (p *Promises) MakePromise(uid types.UID) {
 	p.Lock()
 	defer p.Unlock()
+	log.Printf("promise made for %s\n", uid)
 	p.promises[uid] = time.Now()
 }
 
@@ -56,10 +59,11 @@ func (p *Promises) purgePromise(uid types.UID) {
 	p.subscribers = make([]chan struct{}, 0, 1)
 }
 
-func (p *Promises) PromisesCount() int {
+func (p *Promises) PromisesCount() *resource.Quantity {
 	p.Lock()
 	defer p.Unlock()
-	return len(p.promises)
+	log.Printf("promises count %d\n", len(p.promises))
+	return resource.NewQuantity(int64(len(p.promises)), resource.DecimalSI)
 }
 
 func (p *Promises) Subscribe(waitChan chan struct{}) {

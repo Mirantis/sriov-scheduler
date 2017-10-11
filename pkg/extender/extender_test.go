@@ -1,6 +1,7 @@
 package extender
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -13,30 +14,32 @@ import (
 func TestFilter(t *testing.T) {
 	testCases := []struct {
 		nodesResources  []int64
-		alreadyPromised *resource.Quantity
+		alreadyPromised int
 		failedNodes     []string
 		error           bool
 	}{
 		{
 			nodesResources:  []int64{1, 1, 0},
-			alreadyPromised: resource.NewQuantity(1, resource.DecimalSI),
+			alreadyPromised: 1,
 			failedNodes:     []string{"0", "1", "2"},
 			error:           true,
 		},
 		{
 			nodesResources:  []int64{2, 0},
-			alreadyPromised: resource.NewQuantity(1, resource.DecimalSI),
+			alreadyPromised: 1,
 			failedNodes:     []string{"1"},
 		},
 		{
 			nodesResources:  []int64{3, 3},
-			alreadyPromised: resource.NewQuantity(0, resource.DecimalSI),
+			alreadyPromised: 0,
 		},
 	}
 	for i, tc := range testCases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			ext := NewExtender(nil)
-			ext.promisedVFs = tc.alreadyPromised
+			for j := 0; j < tc.alreadyPromised; j++ {
+				ext.promises.MakePromise(types.UID(fmt.Sprintf("00%d", j)))
+			}
 			args := ExtenderArgs{
 				Pod: v1.Pod{
 					ObjectMeta: meta_v1.ObjectMeta{

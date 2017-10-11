@@ -46,7 +46,7 @@ func (ext *Extender) syncPurged(obj interface{}) {
 		ext.allocatedVFs[pod.Spec.NodeName] = resource.NewQuantity(0, resource.DecimalSI)
 	}
 	ext.allocatedVFs[pod.Spec.NodeName].Sub(*singleItem)
-	ext.purgeByUID(pod.UID)
+	ext.promises.PurgePromise(pod.UID)
 	log.Printf("pod %s removed\n", pod.UID)
 }
 
@@ -63,7 +63,7 @@ func (ext *Extender) syncAllocated(obj interface{}) {
 		ext.allocatedVFs[pod.Spec.NodeName] = resource.NewQuantity(0, resource.DecimalSI)
 	}
 	ext.allocatedVFs[pod.Spec.NodeName].Add(*singleItem)
-	ext.purgeByUID(pod.UID)
+	ext.promises.PurgePromise(pod.UID)
 	log.Printf("pod %s updated\n", pod.UID)
 }
 
