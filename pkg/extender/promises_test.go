@@ -4,23 +4,23 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestPromisesCleaner(t *testing.T) {
-	ext := NewExtender(nil)
-
+	p := &Promises{
+		promises:    map[types.UID]time.Time{},
+		subscribers: make([]chan struct{}, 0, 1),
+	}
 	invalidPromise := time.Now().Add(11 * time.Second)
 	validPromise := time.Now()
-	ext.promises = map[types.UID]time.Time{
+	p.promises = map[types.UID]time.Time{
 		types.UID("1"): invalidPromise,
 		types.UID("2"): invalidPromise,
 		types.UID("3"): validPromise,
 	}
-	ext.promisedVFs.Add(*resource.NewQuantity(3, resource.DecimalSI))
-	ext.purgePromises(time.Now())
-	if len(ext.promises) != 1 {
-		t.Errorf("Only one promise is valid: %v", ext.promises)
+	p.purgePromises(time.Now())
+	if len(p.promises) != 1 {
+		t.Errorf("Only one promise is valid: %v", p.promises)
 	}
 }
