@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -54,6 +56,14 @@ func main() {
 	go func() {
 		ctl.Run(stopCh)
 	}()
+	log.Println("wait until controller and cache synced with api server")
+	if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (bool, error) {
+		return ctl.HasSynced(), nil
+	}); err != nil {
+		log.Fatalf("error waiting for a controller to sync with api server: %v", err)
+	} else {
+		fmt.Println("controller synced with api server successfully")
+	}
 	go func() {
 		ext.RunPromisesCleaner(opts.promisesInterval, stopCh)
 	}()

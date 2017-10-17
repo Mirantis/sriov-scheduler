@@ -253,6 +253,19 @@ func TestSriovExtender(t *testing.T) {
 	}, 10*time.Second, 500*time.Millisecond))
 }
 
+// TestControllerRestarted verifies that without syncing controller after restart -
+// application will schedule more pods than available vfs
+// 1. 4 vfs - 2 for each node
+// 2. schedule 3 pods with vf
+// 3. stop scheduler
+// 4. schedule 3 more pods
+// 5. start scheduler
+// 6. validate that only 1 will be scheduled
+func TestControllerRestarted(t *testing.T) {
+
+}
+
+// TODO replace with wait.PollUntil
 func Eventually(f func() error, timeout, timeinterval time.Duration) error {
 	ticker := time.NewTicker(timeinterval).C
 	timer := time.NewTimer(timeout).C
