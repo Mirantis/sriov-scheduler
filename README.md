@@ -1,6 +1,12 @@
 Sriov scheduler extension
 =========================
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/143079.png)](https://asciinema.org/a/143079)
+
+## Get started
+
 This application does 2 things:
 - discovers total number of sriov vfs on every node in the cluster
 - prevents scheduler from binding pods on a nodes that doesn't have vfs left
