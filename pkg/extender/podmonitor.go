@@ -47,7 +47,9 @@ func (ext *Extender) syncPurged(obj interface{}) {
 	}
 	ext.allocatedVFs[pod.Spec.NodeName].Sub(*singleItem)
 	ext.promises.PurgePromise(pod.UID)
-	log.Printf("pod %s removed\n", pod.UID)
+	log.Printf(
+		"pod %s removed, total vfs for a node %s - %v\n",
+		pod.UID, pod.Spec.NodeName, ext.allocatedVFs[pod.Spec.NodeName])
 }
 
 func (ext *Extender) syncAllocated(obj interface{}) {
@@ -68,5 +70,8 @@ func (ext *Extender) syncAllocated(obj interface{}) {
 }
 
 func (ext *Extender) syncAllocatedFromUpdated(old, new interface{}) {
-	ext.syncAllocated(new)
+	// sync old pod only if it was updated
+	if !ext.selector(old.(*v1.Pod)) {
+		ext.syncAllocated(new)
+	}
 }
