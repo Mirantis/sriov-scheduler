@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/dshulyak/sriov-scheduler/pkg/extender"
+	"github.com/Mirantis/sriov-scheduler/pkg/extender"
 	"github.com/spf13/pflag"
 )
 

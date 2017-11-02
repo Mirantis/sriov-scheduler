@@ -1,4 +1,4 @@
-package: github.com/dshulyak/sriov-scheduler
+package: github.com/Mirantis/sriov-scheduler
 import:
 - package: github.com/spf13/pflag
 - package: github.com/stretchr/testify

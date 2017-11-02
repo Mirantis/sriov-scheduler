@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dshulyak/sriov-scheduler/pkg/extender"
+	"github.com/Mirantis/sriov-scheduler/pkg/extender"
 
 	"flag"
 
