@@ -2,6 +2,7 @@ IMAGE_REPO ?= yashulyak/sriov-scheduler-extender
 IMAGE_BRANCH ?= latest
 
 deps vendor/:
+	go get github.com/Masterminds/glide
 	glide install --strip-vendor
 
 test: vendor/
