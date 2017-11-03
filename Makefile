@@ -1,7 +1,7 @@
 IMAGE_REPO ?= yashulyak/sriov-scheduler-extender
 IMAGE_BRANCH ?= latest
 
-test:
+test: vendor/
 	go test ./pkg/...
 
 deps:
