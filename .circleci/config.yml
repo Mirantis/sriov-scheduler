@@ -9,5 +9,5 @@ jobs:
       - run: make test
       - setup_remote_docker
       - run: make docker
-      - run: make docker-push
-
+      - run: ./utils/build_dind.sh
+      - run: make import
