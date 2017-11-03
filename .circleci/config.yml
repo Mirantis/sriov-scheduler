@@ -9,5 +9,10 @@ jobs:
       - run: make test
       - setup_remote_docker
       - run: make docker
-      - run: ./utils/build_dind.sh
-      - run: make import
+      - run:
+          command: |
+            utils/portforward.sh start
+            utils/portforward.sh 8080&
+            ./utils/build_dind.sh
+            make import
+            make run-e2e
