@@ -1,11 +1,11 @@
 IMAGE_REPO ?= yashulyak/sriov-scheduler-extender
 IMAGE_BRANCH ?= latest
 
+deps vendor/:
+	glide install --strip-vendor
+
 test: vendor/
 	go test ./pkg/...
-
-deps:
-	glide install --strip-vendor
 
 build: vendor/ discovery extender
 
