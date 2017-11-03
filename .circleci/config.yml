@@ -1,0 +1,10 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.8
+    working_directory: /go/src/github.com/Mirantis/sriov-scheduler
+    steps:
+      - checkout
+      - run: make test
+
