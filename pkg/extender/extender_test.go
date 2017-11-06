@@ -58,7 +58,8 @@ func TestFilter(t *testing.T) {
 					},
 				})
 			}
-			result, err := ext.FilterArgs(&args)
+			resultInterface, err := ext.FilterArgs(&args)
+			result := resultInterface.(*ExtenderFilterResult)
 			if err != nil {
 				t.Fatal(err)
 			}
