@@ -27,6 +27,7 @@ import:
 	IMAGE_REPO=$(IMAGE_REPO) IMAGE_BRANCH=$(IMAGE_BRANCH) ./utils/import.sh
 
 run-e2e: e2e.test
+	./utils/changerbac.sh
 	./e2e.test -deployments=./tools/ -kubeconfig=$(HOME)/.kube/config 
 
 clean: 
