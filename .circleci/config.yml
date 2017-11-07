@@ -11,6 +11,8 @@ jobs:
       - run: make docker
       - run:
           command: |
+            sudo apt-get -qq update
+            sudo apt-get install -y socat
             utils/portforward.sh start
             utils/portforward.sh 8080&
             ./utils/build_dind.sh
