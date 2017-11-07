@@ -1,5 +1,6 @@
 IMAGE_REPO ?= yashulyak/sriov-scheduler-extender
 IMAGE_BRANCH ?= latest
+HOME ?= /home
 
 deps vendor/:
 	go get github.com/Masterminds/glide
@@ -26,7 +27,7 @@ import:
 	IMAGE_REPO=$(IMAGE_REPO) IMAGE_BRANCH=$(IMAGE_BRANCH) ./utils/import.sh
 
 run-e2e: e2e.test
-	./e2e.test -deployments=./tools/ -kubeconfig=/home/ds/.kube/config 
+	./e2e.test -deployments=./tools/ -kubeconfig=$(HOME)/.kube/config 
 
 clean: 
 	-rm discovery
