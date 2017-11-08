@@ -40,7 +40,7 @@ type Extender struct {
 	selector Selector
 }
 
-func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, error) {
+func (ext *Extender) FilterArgs(args *ExtenderArgs) (interface{}, error) {
 	log.Printf("Filter called with pod %s/%s and args %v", args.Pod.Namespace, args.Pod.Name, args)
 	if !ext.selector(&args.Pod) {
 		return nil, nil
@@ -99,6 +99,31 @@ func (ext *Extender) FilterArgs(args *ExtenderArgs) (*ExtenderFilterResult, erro
 		}
 		return result, nil
 	}
+}
+
+func (ext *Extender) Prioritize(args *ExtenderArgs) (interface{}, error) {
+	log.Printf("Prioritize called with pod %s/%s and args %v", args.Pod.Namespace, args.Pod.Name, args)
+	if !ext.selector(&args.Pod) {
+		return nil, nil
+	}
+	ext.Lock()
+	defer ext.Unlock()
+	priorityList := HostPriorityList{}
+	promised := ext.promises.PromisesCount()
+	for _, node := range args.Nodes.Items {
+		if _, exists := ext.allocatedVFs[node.Name]; !exists {
+			ext.allocatedVFs[node.Name] = resource.NewQuantity(0, resource.DecimalSI)
+		}
+		res := node.Status.Allocatable[TotalVFsResource]
+		res.Sub(*ext.allocatedVFs[node.Name])
+		res.Sub(*promised)
+		score, converted := res.AsInt64()
+		if !converted {
+			return priorityList, fmt.Errorf("conversion is not possible for %v", &res)
+		}
+		priorityList = append(priorityList, HostPriority{Host: node.Name, Score: int(score)})
+	}
+	return &priorityList, nil
 }
 
 func (ext *Extender) RunPromisesCleaner(interval time.Duration, stopCh <-chan struct{}) {
