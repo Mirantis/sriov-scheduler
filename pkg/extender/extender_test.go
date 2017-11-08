@@ -9,6 +9,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/pkg/api/v1"
+
+	"sort"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilter(t *testing.T) {
@@ -40,29 +44,11 @@ func TestFilter(t *testing.T) {
 			for j := 0; j < tc.alreadyPromised; j++ {
 				ext.promises.MakePromise(types.UID(fmt.Sprintf("00%d", j)))
 			}
-			args := ExtenderArgs{
-				Pod: v1.Pod{
-					ObjectMeta: meta_v1.ObjectMeta{
-						UID:         types.UID("1"),
-						Annotations: map[string]string{"networks": "sriov"},
-					}},
-				Nodes: &v1.NodeList{Items: []v1.Node{}},
-			}
-			for i, totalvfs := range tc.nodesResources {
-				args.Nodes.Items = append(args.Nodes.Items, v1.Node{
-					ObjectMeta: meta_v1.ObjectMeta{Name: strconv.Itoa(i)},
-					Status: v1.NodeStatus{
-						Allocatable: v1.ResourceList{
-							TotalVFsResource: *resource.NewQuantity(
-								totalvfs, resource.DecimalSI)},
-					},
-				})
-			}
-			resultInterface, err := ext.FilterArgs(&args)
-			result := resultInterface.(*ExtenderFilterResult)
+			resultInterface, err := ext.FilterArgs(makeExtenderArgs(tc.nodesResources))
 			if err != nil {
 				t.Fatal(err)
 			}
+			result := resultInterface.(*ExtenderFilterResult)
 			if !tc.error && len(result.Error) != 0 {
 				t.Errorf("Unexpected error: %s\n", result.Error)
 			}
@@ -73,4 +59,66 @@ func TestFilter(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrioritize(t *testing.T) {
+	testCases := []struct {
+		resources     []int64
+		expectedOrder []string
+	}{
+		{
+			resources:     []int64{10, 5, 0},
+			expectedOrder: []string{"0", "1", "2"},
+		},
+		{
+			resources:     []int64{0, 1, 2},
+			expectedOrder: []string{"2", "1", "0"},
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			ext := NewExtender(nil)
+			priorities, err := ext.Prioritize(makeExtenderArgs(tc.resources))
+			if err != nil {
+				t.Fatal(err)
+			}
+			priorityList := *priorities.(*HostPriorityList)
+			require.Len(t, priorityList, len(tc.expectedOrder))
+			sort.Slice(priorityList, func(i, j int) bool {
+				return priorityList[i].Score > priorityList[j].Score
+			})
+			for i, priority := range priorityList {
+				require.Equal(t, priority.Host, tc.expectedOrder[i])
+			}
+		})
+	}
+}
+
+func makeNode(i int, totalvfs int64) v1.Node {
+	return v1.Node{
+		ObjectMeta: meta_v1.ObjectMeta{Name: strconv.Itoa(i)},
+		Status: v1.NodeStatus{
+			Allocatable: v1.ResourceList{
+				TotalVFsResource: *resource.NewQuantity(
+					totalvfs, resource.DecimalSI)},
+		}}
+}
+
+func makePod(uid string) v1.Pod {
+	return v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			UID:         types.UID(uid),
+			Annotations: map[string]string{"networks": "sriov"},
+		}}
+}
+
+func makeExtenderArgs(resources []int64) *ExtenderArgs {
+	args := ExtenderArgs{
+		Pod:   makePod("first"),
+		Nodes: &v1.NodeList{Items: []v1.Node{}},
+	}
+	for i, totalvfs := range resources {
+		args.Nodes.Items = append(args.Nodes.Items, makeNode(i, totalvfs))
+	}
+	return &args
 }

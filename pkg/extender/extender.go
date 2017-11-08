@@ -111,6 +111,9 @@ func (ext *Extender) Prioritize(args *ExtenderArgs) (interface{}, error) {
 	priorityList := HostPriorityList{}
 	promised := ext.promises.PromisesCount()
 	for _, node := range args.Nodes.Items {
+		if _, exists := ext.allocatedVFs[node.Name]; !exists {
+			ext.allocatedVFs[node.Name] = resource.NewQuantity(0, resource.DecimalSI)
+		}
 		res := node.Status.Allocatable[TotalVFsResource]
 		res.Sub(*ext.allocatedVFs[node.Name])
 		res.Sub(*promised)
